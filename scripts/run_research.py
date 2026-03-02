@@ -317,6 +317,8 @@ def main():
             "total_sources": research_data.get("total_sources", 0),
             "sources": research_data.get("sources", [])[:10],
             "counter_sources": research_data.get("counter_sources", [])[:5],
+            "supplementary_sources": research_data.get("supplementary_sources", [])[:6],
+            "market_snapshot": research_data.get("market_snapshot"),
             "collected_at": research_data.get("collected_at", ""),
         },
         "debate": debate_section,
