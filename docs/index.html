@@ -82,15 +82,21 @@
       );
     }
 
+    const ENGINES = {
+      mars:   { label: "MARS", emoji: "📝", desc: "Author→Reviewer→Meta (토큰 효율적)" },
+      debate: { label: "Debate", emoji: "⚔️", desc: "독립분석→교차반론→Moderator" },
+    };
+
     // ─── 입력 폼 ───────────────────────────────────────────────────────────
     function ResearchForm({ onSubmit, loading }) {
       const [topic, setTopic] = useState("");
       const [domain, setDomain] = useState("general");
+      const [engine, setEngine] = useState("mars");
 
       const handleSubmit = (e) => {
         e.preventDefault();
         if (!topic.trim()) return;
-        onSubmit(topic.trim(), domain);
+        onSubmit(topic.trim(), domain, engine);
       };
 
       return (
@@ -109,18 +115,31 @@
                 <option key={k} value={k}>{v.emoji} {v.label}</option>
               ))}
             </select>
+            <select value={engine} onChange={e=>setEngine(e.target.value)}
+              className="bg-slate-800/80 border border-slate-600/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500">
+              {Object.entries(ENGINES).map(([k,v])=>(
+                <option key={k} value={k}>{v.emoji} {v.label}</option>
+              ))}
+            </select>
             <button type="submit" disabled={loading || !topic.trim()}
               className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-semibold px-6 py-3 rounded-xl text-sm transition flex items-center gap-2 whitespace-nowrap">
               {loading ? <><span className="spin-slow inline-block">⏳</span> 분석 중...</> : <><span>🔍</span> 리서치 시작</>}
             </button>
+          </div>
+          {/* 엔진 설명 */}
+          <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+            <span>{ENGINES[engine].emoji}</span>
+            <span className="font-semibold text-slate-400">{ENGINES[engine].label}</span>
+            <span>— {ENGINES[engine].desc}</span>
           </div>
         </form>
       );
     }
 
     // ─── Verdict 카드 ──────────────────────────────────────────────────────
-    function VerdictCard({ verdict, topic, domainName }) {
+    function VerdictCard({ verdict, topic, domainName, engineMode }) {
       const s = stanceStyle(verdict.final_stance);
+      const isMARS = engineMode === "mars";
       return (
         <div className={`card rounded-2xl p-6 border border-slate-700/50 mb-6 shadow-lg ${s.glow}`}>
           <div className="flex flex-col md:flex-row md:items-center gap-4">
@@ -133,20 +152,44 @@
               </div>
             </div>
             <div className="flex-1">
-              <div className="text-xs text-slate-400 mb-1">🏷️ {domainName} | 📌 {topic}</div>
+              <div className="text-xs text-slate-400 mb-1 flex items-center gap-2">
+                <span>🏷️ {domainName}</span>
+                <span>|</span>
+                <span>📌 {topic}</span>
+                <span>|</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${
+                  isMARS ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-400"
+                         : "bg-orange-500/15 border-orange-500/30 text-orange-400"
+                }`}>{isMARS ? "📝 MARS" : "⚔️ Debate"}</span>
+              </div>
               <p className="text-sm text-slate-300 leading-relaxed">{verdict.summary}</p>
             </div>
           </div>
-          {/* 투표 현황 */}
+          {/* 투표 / 리뷰어 결정 현황 */}
           <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-700/30">
-            {Object.entries(verdict.stance_votes || {}).map(([agent, stance]) => {
-              const as = stanceStyle(stance);
-              return (
-                <span key={agent} className={`px-3 py-1 rounded-full text-xs font-semibold border ${as.bg}`}>
-                  {agent}: {stance}
-                </span>
-              );
-            })}
+            {isMARS && verdict.reviewer_decisions ? (
+              verdict.reviewer_decisions.map((rd, i) => {
+                const decColor = rd.decision === "agree"
+                  ? "bg-green-500/15 border-green-500/30 text-green-400"
+                  : rd.decision === "disagree"
+                  ? "bg-red-500/15 border-red-500/30 text-red-400"
+                  : "bg-yellow-500/15 border-yellow-500/30 text-yellow-400";
+                return (
+                  <span key={i} className={`px-3 py-1 rounded-full text-xs font-semibold border ${decColor}`}>
+                    {rd.reviewer}: {rd.decision} ({rd.confidence}/5)
+                  </span>
+                );
+              })
+            ) : (
+              Object.entries(verdict.stance_votes || {}).map(([agent, stance]) => {
+                const as = stanceStyle(stance);
+                return (
+                  <span key={agent} className={`px-3 py-1 rounded-full text-xs font-semibold border ${as.bg}`}>
+                    {agent}: {stance}
+                  </span>
+                );
+              })
+            )}
           </div>
         </div>
       );
@@ -220,6 +263,131 @@
               );
             })}
           </div>
+        </div>
+      );
+    }
+
+    // ─── MARS: Author 보고서 ────────────────────────────────────────────────
+    function AuthorReportCard({ report }) {
+      if (!report) return null;
+      const s = stanceStyle(report.stance);
+      return (
+        <div className={`card rounded-2xl p-5 border border-slate-700/50 mb-6 shadow-lg ${s.glow}`}>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-3xl">{report.avatar || "📝"}</span>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-white">{report.agent_name}</div>
+              <div className="text-xs text-slate-400">{report.role}</div>
+            </div>
+            <div className="text-right">
+              <span className={`px-3 py-1 rounded text-xs font-bold border ${s.bg}`}>{report.stance}</span>
+              <div className="text-xs text-slate-500 mt-1 mono">{report.confidence_score}%</div>
+            </div>
+          </div>
+          <p className="text-sm text-slate-300 leading-relaxed mb-3">{report.analysis}</p>
+          <div className="space-y-1.5">
+            {(report.key_points || []).map((kp, j) => (
+              <div key={j} className="text-xs text-slate-400 flex gap-1.5">
+                <span className="text-indigo-400 flex-shrink-0">▸</span>{kp}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── MARS: Reviewer 카드 ─────────────────────────────────────────────
+    function ReviewerCards({ reviews }) {
+      const [expandedIdx, setExpandedIdx] = useState(null);
+      if (!reviews || reviews.length === 0) return null;
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+          {reviews.map((r, i) => {
+            const decColor = r.decision === "agree"
+              ? { border: "border-green-700/30", bg: "bg-green-500/10", badge: "bg-green-500/15 border-green-500/30 text-green-400", icon: "✅" }
+              : r.decision === "disagree"
+              ? { border: "border-red-700/30", bg: "bg-red-500/10", badge: "bg-red-500/15 border-red-500/30 text-red-400", icon: "❌" }
+              : { border: "border-yellow-700/30", bg: "bg-yellow-500/10", badge: "bg-yellow-500/15 border-yellow-500/30 text-yellow-400", icon: "⚠️" };
+            const isExpanded = expandedIdx === i;
+            return (
+              <div key={i} className={`card rounded-xl p-4 border ${decColor.border} shadow`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-2xl">{r.avatar || "🔍"}</span>
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-white">{r.reviewer_name}</div>
+                    <div className="text-xs text-slate-400">{r.role}</div>
+                  </div>
+                  <div className="text-right">
+                    <span className={`px-2 py-1 rounded text-xs font-bold border ${decColor.badge}`}>
+                      {decColor.icon} {r.decision}
+                    </span>
+                    <div className="text-xs text-slate-500 mt-1">신뢰도 {r.confidence}/5</div>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed mb-2">
+                  {isExpanded ? r.justification : (r.justification || "").slice(0, 150) + "..."}
+                </p>
+                {r.justification && r.justification.length > 150 && (
+                  <button onClick={() => setExpandedIdx(isExpanded ? null : i)}
+                    className="text-xs text-indigo-400 mb-2 hover:text-indigo-300">
+                    {isExpanded ? "접기" : "더 보기"}
+                  </button>
+                )}
+                {r.key_concerns && r.key_concerns.length > 0 && (
+                  <div className="space-y-1 pt-2 border-t border-slate-700/30">
+                    {r.key_concerns.slice(0, 3).map((c, j) => (
+                      <div key={j} className="text-xs text-orange-300/80 flex gap-1">
+                        <span className="text-orange-400 flex-shrink-0">⚡</span>{c}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {r.suggested_revision && (
+                  <div className="mt-2 pt-2 border-t border-slate-700/30 text-xs text-cyan-300/80">
+                    <span className="text-cyan-400 font-semibold">수정 제안:</span> {(r.suggested_revision || "").slice(0, 100)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ─── MARS: Rebuttal 카드 ─────────────────────────────────────────────
+    function RebuttalCard({ report }) {
+      if (!report) return null;
+      const s = stanceStyle(report.stance);
+      return (
+        <div className={`card rounded-xl p-4 border border-cyan-700/30 mb-6 bg-cyan-900/5`}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">🔄</span>
+            <h3 className="font-bold text-cyan-300 text-sm">Author Rebuttal (수정 분석)</h3>
+            <span className={`px-2 py-0.5 rounded text-xs font-bold border ${s.bg}`}>{report.stance}</span>
+            <span className="text-xs text-slate-500 mono">{report.confidence_score}%</span>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed mb-2">{(report.analysis || "").slice(0, 300)}</p>
+          <div className="space-y-1">
+            {(report.key_points || []).slice(0, 3).map((kp, j) => (
+              <div key={j} className="text-xs text-cyan-300/80 flex gap-1">
+                <span className="text-cyan-400 flex-shrink-0">▸</span>{kp}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── MARS: 토큰 효율성 배지 ──────────────────────────────────────────
+    function TokenEfficiency({ data }) {
+      if (!data) return null;
+      return (
+        <div className="flex items-center gap-3 mb-4 text-xs text-slate-500">
+          <span>⚡ LLM 호출: {data.total_llm_calls}회</span>
+          <span className="text-slate-600">|</span>
+          <span>Author: {data.author_calls}회</span>
+          <span className="text-slate-600">|</span>
+          <span>Reviewer: {data.reviewer_calls}회</span>
         </div>
       );
     }
@@ -306,6 +474,11 @@
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm">{d.emoji}</span>
                     <span className="text-xs font-semibold text-white flex-1 truncate">{h.topic}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                      h.engine_mode === "mars"
+                        ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-400"
+                        : "bg-orange-500/15 border-orange-500/30 text-orange-400"
+                    }`}>{h.engine_mode === "mars" ? "MARS" : "Debate"}</span>
                     <span className={`px-2 py-0.5 rounded text-xs font-bold border ${s.bg}`}>{h.final_stance}</span>
                   </div>
                   <div className="text-xs text-slate-500 truncate">{h.summary}</div>
@@ -348,7 +521,7 @@
       }, []);
 
       // 리서치 트리거
-      const handleSubmit = useCallback(async (topic, domain) => {
+      const handleSubmit = useCallback(async (topic, domain, engine_mode) => {
         const token = localStorage.getItem("gh_pat");
         if (!token) {
           setShowSettings(true);
@@ -366,7 +539,7 @@
                 "Authorization": `token ${token}`,
                 "Accept": "application/vnd.github+json",
               },
-              body: JSON.stringify({ ref: "main", inputs: { topic, domain } }),
+              body: JSON.stringify({ ref: "main", inputs: { topic, domain, engine_mode: engine_mode || "mars" } }),
             }
           );
           if (res.status === 204) {
@@ -431,17 +604,43 @@
             {report ? (
               <>
                 {/* Verdict */}
-                <VerdictCard verdict={report.verdict} topic={report.topic} domainName={report.domain_name} />
+                <VerdictCard verdict={report.verdict} topic={report.topic} domainName={report.domain_name}
+                  engineMode={report.engine_mode || report.debate?.engine_mode || "debate"} />
 
                 {/* 인사이트 & 리스크 */}
                 <InsightsPanel verdict={report.verdict} />
 
-                {/* 에이전트 분석 카드 */}
-                <h3 className="text-sm font-bold text-slate-400 mb-3">📋 에이전트 분석 (Phase 1)</h3>
-                <AgentCards reports={report.debate.phase1_reports} />
+                {/* 엔진 모드별 분석 섹션 */}
+                {(report.engine_mode || report.debate?.engine_mode) === "mars" ? (
+                  <>
+                    {/* MARS 모드: Author → Reviewers → Rebuttal */}
+                    <h3 className="text-sm font-bold text-slate-400 mb-3 flex items-center gap-2">
+                      📝 Author 종합 분석
+                    </h3>
+                    <AuthorReportCard report={report.debate?.author_report} />
 
-                {/* 반론 타임라인 */}
-                <CritiqueTimeline critiques={report.debate.phase2_critiques} reports={report.debate.phase1_reports} />
+                    <h3 className="text-sm font-bold text-slate-400 mb-3 flex items-center gap-2">
+                      🔍 독립 리뷰 ({(report.debate?.reviews || []).length}명)
+                    </h3>
+                    <ReviewerCards reviews={report.debate?.reviews} />
+
+                    {report.debate?.rebuttal_report && (
+                      <RebuttalCard report={report.debate.rebuttal_report} />
+                    )}
+
+                    <TokenEfficiency data={report.debate?.token_efficiency} />
+                  </>
+                ) : (
+                  <>
+                    {/* Debate 모드: Phase 1 + Phase 2 */}
+                    <h3 className="text-sm font-bold text-slate-400 mb-3">📋 에이전트 분석 (Phase 1)</h3>
+                    <AgentCards reports={report.debate?.phase1_reports || []} />
+
+                    {report.debate?.phase2_critiques && report.debate.phase2_critiques.length > 0 && (
+                      <CritiqueTimeline critiques={report.debate.phase2_critiques} reports={report.debate?.phase1_reports || []} />
+                    )}
+                  </>
+                )}
 
                 {/* 소스 목록 */}
                 <SourcesList researchData={report.research_data} />
