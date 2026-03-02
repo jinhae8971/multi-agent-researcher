@@ -128,12 +128,25 @@ class BaseAgent:
 
     def _format_research_data(self, research_data: dict) -> str:
         """웹 리서치 데이터를 에이전트가 읽을 수 있는 텍스트로 변환."""
-        lines = [f"주제: {research_data.get('topic', '알 수 없음')}"]
+        collected_at = research_data.get("collected_at", "")
+
+        lines = [
+            f"주제: {research_data.get('topic', '알 수 없음')}",
+            f"데이터 수집 시각: {collected_at}",
+            "",
+            "⚠️ [데이터 정합성 필수 규칙 — 반드시 준수]",
+            "1. 아래 소스 데이터에 명시된 수치·팩트만 사용하세요.",
+            "2. 당신의 학습 데이터(training data)에 기반한 과거 수치를 절대 사용하지 마세요.",
+            "3. 특히 주가지수, 환율, 금리 등 시계열 수치는 소스에서 직접 인용한 것만 사용하세요.",
+            "4. 소스에 명시되지 않은 구체적 수치(예: 지수 포인트, %)는 추측하지 말고 '소스 미확인'으로 표시하세요.",
+            "5. 소스 내 날짜를 확인하여 오래된 데이터인지 최신 데이터인지 구분하세요.",
+            "",
+        ]
 
         # AI 요약
         ai_summary = research_data.get("ai_summary", "")
         if ai_summary:
-            lines.append(f"\n[AI 사전 요약]\n{ai_summary[:600]}")
+            lines.append(f"[AI 사전 요약]\n{ai_summary[:600]}")
 
         # 메인 소스
         sources = research_data.get("sources", [])
@@ -141,6 +154,7 @@ class BaseAgent:
             lines.append(f"\n[주요 소스 ({len(sources)}건)]")
             for i, s in enumerate(sources[:8], 1):
                 lines.append(f"\n--- 소스 {i}: {s.get('title', '')} ---")
+                lines.append(f"URL: {s.get('url', '')}")
                 lines.append(s.get("content", "")[:400])
 
         # 반대 의견 소스
@@ -149,9 +163,11 @@ class BaseAgent:
             lines.append(f"\n[반대 의견/리스크 소스 ({len(counter)}건)]")
             for i, s in enumerate(counter[:4], 1):
                 lines.append(f"\n--- 반론 소스 {i}: {s.get('title', '')} ---")
+                lines.append(f"URL: {s.get('url', '')}")
                 lines.append(s.get("content", "")[:300])
 
-        lines.append(f"\n수집 시각: {research_data.get('collected_at', '')}")
+        lines.append(f"\n[재확인] 데이터 수집 시각: {collected_at}")
+        lines.append("위 소스에 포함된 구체적 수치만 인용하세요. 학습 데이터의 과거 수치를 사용하면 심각한 오류가 됩니다.")
         return "\n".join(lines)
 
     # ── 서브클래스에서 구현 ──────────────────────────────────────────────────
