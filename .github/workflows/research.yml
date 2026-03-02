@@ -17,6 +17,14 @@ on:
           - economy
           - stock
           - general
+      engine_mode:
+        description: "엔진 모드"
+        required: true
+        default: "mars"
+        type: choice
+        options:
+          - mars
+          - debate
 
 permissions:
   contents: write
@@ -58,6 +66,7 @@ jobs:
           TELEGRAM_CHAT_ID:  ${{ secrets.TELEGRAM_CHAT_ID }}
           RESEARCH_TOPIC:    ${{ github.event.inputs.topic }}
           RESEARCH_DOMAIN:   ${{ github.event.inputs.domain }}
+          ENGINE_MODE:       ${{ github.event.inputs.engine_mode }}
           TZ: "Asia/Seoul"
           PYTHONPATH: ${{ github.workspace }}
         run: |
@@ -72,7 +81,7 @@ jobs:
           git add data/history/ || true
           git status --short
           git diff --staged --quiet || \
-            git commit -m "🧠 research: ${{ github.event.inputs.topic }}"
+            git commit -m "🧠 research(${{ github.event.inputs.engine_mode }}): ${{ github.event.inputs.topic }}"
           git push
 
       # ─── 6. 실패 시 Telegram 알림 ──────────────────────────────────────

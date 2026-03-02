@@ -2,8 +2,12 @@
 base_agent.py — 모든 에이전트의 공통 인터페이스
 
 Korean Stock Agent의 검증된 패턴을 기반으로 범용화.
-핵심 데이터클래스(AgentReport, AgentCritique)와
+핵심 데이터클래스(AgentReport, AgentCritique, ReviewerReport)와
 LLM 호출/JSON 파싱 유틸리티를 제공한다.
+
+MARS(Multi-Agent Review System) 패턴 지원:
+  - ReviewerReport: Reviewer 에이전트의 리뷰 결과
+  - review() 메서드: Author 분석에 대한 독립 리뷰
 """
 import json
 import logging
@@ -49,6 +53,31 @@ class AgentCritique:
             "from_agent": self.from_agent,
             "to_agent": self.to_agent,
             "critique": self.critique,
+        }
+
+
+@dataclass
+class ReviewerReport:
+    """MARS 패턴: Reviewer 에이전트의 독립 리뷰 결과."""
+    reviewer_name: str          # 리뷰어 이름
+    role: str                   # 전문 역할
+    avatar: str                 # 이모지
+    decision: str               # "agree" | "disagree" | "partial"
+    confidence: int             # 1~5 (MARS 논문 기준)
+    justification: str          # 판단 근거 (200~400자)
+    suggested_revision: str     # 수정 제안 (disagree/partial 시)
+    key_concerns: List[str]     # 핵심 우려사항 (최대 3개)
+
+    def to_dict(self) -> dict:
+        return {
+            "reviewer_name": self.reviewer_name,
+            "role": self.role,
+            "avatar": self.avatar,
+            "decision": self.decision,
+            "confidence": self.confidence,
+            "justification": self.justification,
+            "suggested_revision": self.suggested_revision,
+            "key_concerns": self.key_concerns,
         }
 
 
@@ -131,4 +160,8 @@ class BaseAgent:
         raise NotImplementedError
 
     def critique(self, other_report: AgentReport, research_data: dict) -> AgentCritique:
+        raise NotImplementedError
+
+    def review(self, author_report: AgentReport, research_data: dict) -> ReviewerReport:
+        """MARS Phase 2: Author의 분석을 전문 관점에서 독립 리뷰."""
         raise NotImplementedError

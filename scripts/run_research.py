@@ -1,11 +1,15 @@
 """
 run_research.py — 멀티에이전트 리서치 파이프라인 진입점
 
+ENGINE_MODE 환경변수로 엔진 선택:
+  - "mars" (기본값): MARS 패턴 (Author → Reviewer → Meta-Reviewer)
+  - "debate": 기존 3-Phase 토론 (독립 분석 → 교차 반론 → Moderator)
+
 실행 순서:
-  1. 환경변수에서 주제(topic)와 도메인(domain) 로드
+  1. 환경변수에서 주제(topic), 도메인(domain), 엔진 모드 로드
   2. 웹 리서치 데이터 수집 (Tavily)
   3. 도메인 프리셋 기반 에이전트 동적 생성
-  4. 3-Phase 토론 실행
+  4. 선택된 엔진으로 분석 실행
   5. JSON 보고서 생성 + 히스토리 아카이브
   6. Telegram 알림 발송
 """
@@ -24,7 +28,7 @@ import anthropic
 
 from agents import DynamicAgent
 from config.domains import get_domain_preset
-from orchestrator import DebateEngine, Moderator, collect_research
+from orchestrator import DebateEngine, MARSEngine, Moderator, collect_research
 
 # ─── 환경 설정 ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -35,6 +39,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-5-20250929")
+ENGINE_MODE = os.environ.get("ENGINE_MODE", "mars").strip().lower()  # "mars" | "debate"
 DOCS_DIR = ROOT / "docs" / "data"
 HISTORY_DIR = ROOT / "data" / "history"
 
@@ -116,6 +121,7 @@ def update_history_index(report: dict, timestamp: str):
         "topic": report.get("topic", ""),
         "domain": report.get("domain", ""),
         "domain_name": report.get("domain_name", ""),
+        "engine_mode": report.get("engine_mode", "debate"),
         "final_stance": verdict.get("final_stance", ""),
         "confidence_score": verdict.get("confidence_score", 0),
         "summary": verdict.get("summary", "")[:150],
@@ -142,9 +148,11 @@ def main():
         sys.exit(1)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    engine_mode = ENGINE_MODE
     logger.info(f"===== 리서치 파이프라인 시작 =====")
     logger.info(f"주제: {topic}")
     logger.info(f"도메인: {domain}")
+    logger.info(f"엔진 모드: {engine_mode}")
 
     # 2) 설정 로드
     cfg = load_config()
@@ -163,24 +171,7 @@ def main():
     )
     logger.info(f"수집 완료: {research_data.get('total_sources', 0)}건 소스")
 
-    # 5) 에이전트 동적 생성
-    agents = [
-        DynamicAgent(
-            client=client,
-            model=MODEL,
-            agent_cfg=agent_cfg,
-            stance_values=preset["stance_values"],
-        )
-        for agent_cfg in preset["agents"]
-    ]
-
-    # 6) Phase 1 + Phase 2 토론
-    logger.info("[Step 2] 에이전트 토론 진행 중...")
-    engine = DebateEngine(agents, preset["critique_pairs"])
-    debate_result = engine.run(research_data)
-
-    # 7) Phase 3: Moderator 종합 판단
-    logger.info("[Step 3] Moderator 종합 판단 중...")
+    # 5) Moderator (두 모드 공통)
     moderator = Moderator(
         client=client,
         model=MODEL,
@@ -188,18 +179,101 @@ def main():
         stance_thresholds=preset["stance_thresholds"],
         stance_values=preset["stance_values"],
     )
-    verdict = moderator.synthesize(
-        reports=debate_result["phase1_reports"],
-        critiques=debate_result["phase2_critiques"],
-        research_data=research_data,
-    )
 
-    # 8) 보고서 조립
+    # 6) 엔진 모드에 따라 분기
+    if engine_mode == "mars" and "mars_config" in preset:
+        # ─── MARS 모드: Author → Reviewer → Meta-Reviewer ──────────────
+        logger.info("[Step 2] MARS 엔진으로 분석 진행 중...")
+        mars_cfg = preset["mars_config"]
+
+        # Author 에이전트 생성
+        author = DynamicAgent(
+            client=client,
+            model=MODEL,
+            agent_cfg=mars_cfg["author"],
+            stance_values=preset["stance_values"],
+            role_type="author",
+        )
+
+        # Reviewer 에이전트 생성 (기존 agents를 reviewer로 활용)
+        reviewers = [
+            DynamicAgent(
+                client=client,
+                model=MODEL,
+                agent_cfg=agent_cfg,
+                stance_values=preset["stance_values"],
+                role_type="reviewer",
+            )
+            for agent_cfg in preset["agents"]
+        ]
+
+        # MARS 파이프라인 실행
+        engine = MARSEngine(
+            author=author,
+            reviewers=reviewers,
+            enable_rebuttal=True,
+            rebuttal_threshold=0.5,
+        )
+        mars_result = engine.run(research_data)
+
+        # Meta-Reviewer 종합 판단
+        logger.info("[Step 3] Meta-Reviewer 종합 판단 중...")
+        verdict = moderator.meta_review(
+            author_report=mars_result["author_report"],
+            reviews=mars_result["reviews"],
+            research_data=research_data,
+            rebuttal_report=mars_result.get("rebuttal_report"),
+        )
+
+        # 보고서 조립 (MARS 구조)
+        debate_section = {
+            "engine_mode": "mars",
+            "author_report": mars_result["author_report"],
+            "reviews": mars_result["reviews"],
+            "rebuttal_report": mars_result.get("rebuttal_report"),
+            "token_efficiency": mars_result.get("token_efficiency", {}),
+        }
+
+    else:
+        # ─── 기존 Debate 모드: Phase 1 + Phase 2 + Phase 3 ────────────
+        if engine_mode == "mars":
+            logger.warning("mars_config 없음, debate 모드로 폴백")
+        logger.info("[Step 2] Debate 엔진으로 토론 진행 중...")
+
+        agents = [
+            DynamicAgent(
+                client=client,
+                model=MODEL,
+                agent_cfg=agent_cfg,
+                stance_values=preset["stance_values"],
+            )
+            for agent_cfg in preset["agents"]
+        ]
+
+        engine = DebateEngine(agents, preset["critique_pairs"])
+        debate_result = engine.run(research_data)
+
+        logger.info("[Step 3] Moderator 종합 판단 중...")
+        verdict = moderator.synthesize(
+            reports=debate_result["phase1_reports"],
+            critiques=debate_result["phase2_critiques"],
+            research_data=research_data,
+        )
+
+        # 보고서 조립 (기존 구조)
+        debate_section = {
+            "engine_mode": "debate",
+            "phase1_reports": debate_result["phase1_reports"],
+            "phase2_critiques": debate_result["phase2_critiques"],
+        }
+
+    # 7) 보고서 조립
     report = {
         "id": timestamp,
         "topic": topic,
         "domain": domain,
         "domain_name": preset["name"],
+        "engine_mode": debate_section.get("engine_mode", engine_mode),
         "generated_at": datetime.now().isoformat(),
         "research_data": {
             "topic": research_data.get("topic", ""),
@@ -209,10 +283,7 @@ def main():
             "counter_sources": research_data.get("counter_sources", [])[:5],
             "collected_at": research_data.get("collected_at", ""),
         },
-        "debate": {
-            "phase1_reports": debate_result["phase1_reports"],
-            "phase2_critiques": debate_result["phase2_critiques"],
-        },
+        "debate": debate_section,
         "verdict": verdict,
     }
 

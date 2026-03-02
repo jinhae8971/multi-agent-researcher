@@ -1,9 +1,15 @@
 """
 moderator.py — Phase 3: 하이브리드 종합 판단
 
-두 단계로 최종 판단을 내린다:
+두 가지 모드를 지원한다:
+
+[기존 Debate 모드] synthesize()
   1. 규칙 기반 선행 집계: confidence_score 가중 투표
   2. LLM 품질 평가: 토론 내용의 논리적 강점/약점 기반 최종 판단
+
+[MARS 모드] meta_review()
+  1. Reviewer 리뷰 결과 규칙 기반 집계
+  2. LLM Meta-Reviewer: Author 분석 + 리뷰 통합 → 최종 판단
 
 도메인별 stance 값과 스코어 매핑을 외부에서 주입받는다.
 """
@@ -164,6 +170,205 @@ stance: {stances_str} 중 하나"""
         for c in critiques:
             lines.append(
                 f"\n{c['from_agent']} → {c['to_agent']}: {c['critique'][:250]}"
+            )
+
+        return "\n".join(lines)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # MARS 모드: Meta-Reviewer 기반 종합 판단
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def meta_review(
+        self,
+        author_report: dict,
+        reviews: List[dict],
+        research_data: dict,
+        rebuttal_report: Optional[dict] = None,
+    ) -> dict:
+        """MARS Meta-Reviewer: Author 분석 + Reviewer 리뷰를 통합하여 최종 판단.
+
+        Args:
+            author_report: Author의 분석 (AgentReport.to_dict())
+            reviews: Reviewer들의 리뷰 (ReviewerReport.to_dict() 리스트)
+            research_data: 원본 리서치 데이터
+            rebuttal_report: Rebuttal 결과 (선택, AgentReport.to_dict())
+
+        Returns:
+            verdict dict
+        """
+        # 1) 규칙 기반 리뷰 집계
+        review_score, avg_confidence = self._aggregate_reviews(reviews)
+        rule_stance = self._review_score_to_stance(review_score, author_report)
+        logger.info(
+            f"MARS 규칙 기반 판단: {rule_stance} "
+            f"(리뷰 점수: {review_score:.2f}, 평균 신뢰도: {avg_confidence:.1f}/5)"
+        )
+
+        # 2) LLM Meta-Reviewer 종합 판단
+        mars_text = self._format_mars_debate(author_report, reviews, rebuttal_report)
+        stances_str = " / ".join(self.stance_values)
+
+        # 최종 분석은 rebuttal이 있으면 rebuttal, 없으면 author 원본
+        final_author = rebuttal_report if rebuttal_report else author_report
+
+        prompt = f"""당신은 MARS(Multi-Agent Review System)의 Meta-Reviewer입니다.
+Author의 분석과 전문가 Reviewer들의 리뷰를 종합하여 최종 판단을 내려주세요.
+
+[리서치 주제]
+{research_data.get("topic", "알 수 없음")}
+
+{mars_text}
+
+[규칙 기반 선행 판단: {rule_stance}]
+
+[Meta-Reviewer 판단 기준]
+1. Author의 분석 논리와 데이터 근거의 타당성
+2. Reviewer들이 공통으로 지적한 핵심 약점
+3. Reviewer들이 인정한 분석의 강점
+4. 리뷰어 간 의견이 분분한 쟁점 사항
+5. 당신 자신의 독립적인 판단 (리뷰어만 의존하지 말 것)
+
+반드시 아래 JSON으로만 응답:
+{{
+  "final_stance": "{self.stance_values[0]}",
+  "confidence_score": 68,
+  "summary": "Meta-Reviewer 종합 근거 설명 (300자 이상)",
+  "key_insights": ["핵심 인사이트 1", "핵심 인사이트 2", "핵심 인사이트 3"],
+  "risk_factors": ["리스크 1", "리스크 2"],
+  "action_items": ["실행 제안 1", "실행 제안 2"],
+  "review_summary": "리뷰 종합 한줄 평가",
+  "debate_quality": "분석-리뷰 품질 한줄 평가"
+}}
+
+stance: {stances_str} 중 하나"""
+
+        try:
+            resp = self.client.messages.create(
+                model=self.model,
+                max_tokens=2048,
+                system=(
+                    "당신은 MARS Meta-Reviewer입니다. "
+                    "Author의 분석과 Reviewer들의 독립 리뷰를 종합하여 "
+                    "공정하고 균형 잡힌 최종 판단을 내립니다. "
+                    "Reviewer 의견만 의존하지 말고, 당신 자신의 판단도 반영하세요. "
+                    "JSON만 반환하세요."
+                ),
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = re.sub(r"```(?:json)?\s*|```\s*", "", resp.content[0].text).strip()
+            match = re.search(r"\{[\s\S]*\}", text)
+            result = json.loads(match.group()) if match else {}
+        except Exception as e:
+            logger.error(f"Meta-Reviewer LLM 호출 실패: {e}")
+            result = {
+                "final_stance": rule_stance,
+                "confidence_score": 50,
+                "summary": "Meta-Reviewer 자동 종합 결과입니다.",
+            }
+
+        # stance 유효성 검증
+        final_stance = result.get("final_stance", rule_stance)
+        if final_stance not in self.stance_values:
+            final_stance = rule_stance
+
+        return {
+            "final_stance": final_stance,
+            "confidence_score": max(0, min(100, int(result.get("confidence_score", int(avg_confidence * 20))))),
+            "summary": result.get("summary", ""),
+            "key_insights": result.get("key_insights", []),
+            "risk_factors": result.get("risk_factors", []),
+            "action_items": result.get("action_items", []),
+            "review_summary": result.get("review_summary", ""),
+            "debate_quality": result.get("debate_quality", ""),
+            "author_stance": final_author.get("stance", "NEUTRAL"),
+            "author_confidence": final_author.get("confidence_score", 50),
+            "reviewer_decisions": {r["reviewer_name"]: r["decision"] for r in reviews},
+            "rule_based_stance": rule_stance,
+            "had_rebuttal": rebuttal_report is not None,
+        }
+
+    def _aggregate_reviews(self, reviews: List[dict]) -> tuple:
+        """Reviewer 리뷰 결과를 규칙 기반으로 집계.
+
+        decision별 가중치:
+          agree=+1, partial=0, disagree=-1
+        confidence(1~5)를 가중치로 사용.
+
+        Returns:
+            (review_score: -1.0~1.0, avg_confidence: 1.0~5.0)
+        """
+        decision_weight = {"agree": 1.0, "partial": 0.0, "disagree": -1.0}
+        total_w, weighted_sum, conf_sum = 0.0, 0.0, 0.0
+
+        for r in reviews:
+            conf = r.get("confidence", 3)
+            decision = r.get("decision", "partial")
+            d_score = decision_weight.get(decision, 0.0)
+            weighted_sum += d_score * conf
+            total_w += conf
+            conf_sum += conf
+
+        if total_w == 0:
+            return 0.0, 3.0
+
+        return weighted_sum / total_w, conf_sum / len(reviews)
+
+    def _review_score_to_stance(self, review_score: float, author_report: dict) -> str:
+        """리뷰 집계 점수를 stance로 변환.
+
+        - 리뷰어들이 대체로 동의 (score > 0.3) → Author의 stance 유지
+        - 리뷰어들이 대체로 반대 (score < -0.3) → Author의 stance 반전
+        - 중간 → 중립 stance
+        """
+        if review_score > 0.3:
+            # 리뷰어 동의 → Author stance 유지
+            author_stance = author_report.get("stance", "NEUTRAL")
+            if author_stance in self.stance_values:
+                return author_stance
+            return self.stance_values[0]
+        elif review_score < -0.3:
+            # 리뷰어 반대 → 가장 반대쪽 stance
+            return self.stance_values[-1]
+        else:
+            # 중간 → 중립
+            mid = len(self.stance_values) // 2
+            return self.stance_values[mid]
+
+    def _format_mars_debate(
+        self,
+        author_report: dict,
+        reviews: List[dict],
+        rebuttal_report: Optional[dict] = None,
+    ) -> str:
+        """MARS 토론 내용을 텍스트로 정리."""
+        lines = [
+            f"[Author 분석 — {author_report.get('avatar', '')} "
+            f"{author_report['agent_name']} ({author_report['role']})]",
+            f"  판단: {author_report['stance']} "
+            f"(확신도 {author_report['confidence_score']}%)",
+            f"  분석: {author_report['analysis'][:500]}",
+            f"  핵심: {', '.join(author_report.get('key_points', [])[:5])}",
+        ]
+
+        lines.append("\n[전문가 독립 리뷰]")
+        for r in reviews:
+            lines.append(
+                f"\n{r.get('avatar', '')} {r['reviewer_name']} ({r['role']})"
+                f"\n  판정: {r['decision']} (신뢰도 {r['confidence']}/5)"
+                f"\n  근거: {r['justification'][:300]}"
+            )
+            if r.get("suggested_revision"):
+                lines.append(f"  수정 제안: {r['suggested_revision'][:200]}")
+            if r.get("key_concerns"):
+                lines.append(f"  핵심 우려: {', '.join(r['key_concerns'][:3])}")
+
+        if rebuttal_report:
+            lines.append(
+                f"\n[Author Rebuttal — 수정된 분석]"
+                f"\n  판단: {rebuttal_report['stance']} "
+                f"(확신도 {rebuttal_report['confidence_score']}%)"
+                f"\n  수정 분석: {rebuttal_report['analysis'][:400]}"
+                f"\n  핵심: {', '.join(rebuttal_report.get('key_points', [])[:3])}"
             )
 
         return "\n".join(lines)
