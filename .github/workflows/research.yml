@@ -1,0 +1,98 @@
+name: Multi-Agent Research
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "리서치 주제"
+        required: true
+        type: string
+      domain:
+        description: "도메인"
+        required: true
+        default: "general"
+        type: choice
+        options:
+          - tech
+          - economy
+          - stock
+          - general
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ─── 1. 코드 체크아웃 ───────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 2
+
+      # ─── 2. Python 환경 설정 ────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # ─── 3. 의존성 설치 ─────────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ─── 4. 리서치 파이프라인 실행 ──────────────────────────────────────
+      - name: Run research pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TAVILY_API_KEY:    ${{ secrets.TAVILY_API_KEY }}
+          TELEGRAM_TOKEN:    ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:  ${{ secrets.TELEGRAM_CHAT_ID }}
+          RESEARCH_TOPIC:    ${{ github.event.inputs.topic }}
+          RESEARCH_DOMAIN:   ${{ github.event.inputs.domain }}
+          TZ: "Asia/Seoul"
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python scripts/run_research.py
+
+      # ─── 5. 결과 커밋 & 푸시 ────────────────────────────────────────────
+      - name: Commit and push report
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data/ || true
+          git add data/history/ || true
+          git status --short
+          git diff --staged --quiet || \
+            git commit -m "🧠 research: ${{ github.event.inputs.topic }}"
+          git push
+
+      # ─── 6. 실패 시 Telegram 알림 ──────────────────────────────────────
+      - name: Notify failure via Telegram
+        if: failure()
+        env:
+          TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PYEOF'
+          import os, requests, sys
+          token    = os.environ.get("TELEGRAM_TOKEN", "")
+          chat_id  = os.environ.get("TELEGRAM_CHAT_ID", "")
+          if not token or not chat_id:
+              sys.exit(0)
+          topic = "${{ github.event.inputs.topic }}"
+          msg = f"❌ 리서치 실패!\n주제: {topic}\nGitHub Actions 로그를 확인해 주세요.\nhttps://github.com/${{ github.repository }}/actions"
+          requests.post(
+              f"https://api.telegram.org/bot{token}/sendMessage",
+              json={"chat_id": chat_id, "text": msg},
+              timeout=10,
+          )
+          PYEOF

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Agent Researcher</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+    * { font-family: 'Noto Sans KR', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    body { background: #0a0f1e; color: #e2e8f0; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1a2035; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    .card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+    .bubble-left  { border-radius: 4px 18px 18px 18px; }
+    .bubble-right { border-radius: 18px 4px 18px 18px; }
+    @keyframes pulse-slow { 0%,100%{opacity:1} 50%{opacity:.6} }
+    .pulse-slow { animation: pulse-slow 3s infinite; }
+    @keyframes spin-slow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+    .spin-slow { animation: spin-slow 2s linear infinite; }
+    .progress-bar { transition: width 1s ease-in-out; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    const GH_OWNER = "jinhae8971";
+    const GH_REPO = "multi-agent-researcher";
+    const GH_WORKFLOW = "research.yml";
+
+    const DOMAINS = {
+      tech:    { label: "IT/기술",    emoji: "🔧", color: "blue" },
+      economy: { label: "경제/거시",  emoji: "📊", color: "yellow" },
+      stock:   { label: "주식/투자",  emoji: "💹", color: "green" },
+      general: { label: "일반 리서치", emoji: "🔍", color: "purple" },
+    };
+
+    // ─── 유틸 ──────────────────────────────────────────────────────────────
+    function stanceStyle(stance) {
+      const s = (stance || "").toUpperCase();
+      if (["BUY","BULLISH","POSITIVE","STRONG_AGREE","AGREE"].includes(s))
+        return { text: "text-green-400", bg: "bg-green-500/15 border-green-500/30 text-green-400", glow: "shadow-green-500/20" };
+      if (["SELL","BEARISH","NEGATIVE","DISAGREE"].includes(s))
+        return { text: "text-red-400", bg: "bg-red-500/15 border-red-500/30 text-red-400", glow: "shadow-red-500/20" };
+      return { text: "text-yellow-400", bg: "bg-yellow-500/15 border-yellow-500/30 text-yellow-400", glow: "shadow-yellow-500/20" };
+    }
+
+    // ─── 설정 패널 ─────────────────────────────────────────────────────────
+    function SettingsPanel({ show, onClose }) {
+      const [pat, setPat] = useState(localStorage.getItem("gh_pat") || "");
+      if (!show) return null;
+      return (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+          <div className="card rounded-2xl p-6 border border-slate-700 max-w-md w-full" onClick={e=>e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-4">GitHub PAT 설정</h3>
+            <p className="text-xs text-slate-400 mb-3">
+              workflow_dispatch 트리거에 필요합니다. Fine-grained PAT (Actions: write)을 입력해주세요.
+              브라우저 localStorage에만 저장됩니다.
+            </p>
+            <input type="password" value={pat} onChange={e=>setPat(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white mb-3"
+              placeholder="ghp_xxxxxxxxxxxx" />
+            <div className="flex gap-2">
+              <button onClick={()=>{localStorage.setItem("gh_pat",pat);onClose()}}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold py-2 rounded-lg transition">
+                저장
+              </button>
+              <button onClick={()=>{localStorage.removeItem("gh_pat");setPat("");onClose()}}
+                className="px-4 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm rounded-lg transition">
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 입력 폼 ───────────────────────────────────────────────────────────
+    function ResearchForm({ onSubmit, loading }) {
+      const [topic, setTopic] = useState("");
+      const [domain, setDomain] = useState("general");
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!topic.trim()) return;
+        onSubmit(topic.trim(), domain);
+      };
+
+      return (
+        <form onSubmit={handleSubmit} className="card rounded-2xl p-5 border border-slate-700/50 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-2xl">🧠</span>
+            <h2 className="text-base font-bold text-white">새 리서치 요청</h2>
+          </div>
+          <div className="flex flex-col md:flex-row gap-3">
+            <input type="text" value={topic} onChange={e=>setTopic(e.target.value)}
+              className="flex-1 bg-slate-800/80 border border-slate-600/50 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+              placeholder="리서치 주제를 입력하세요 (예: AI 반도체 시장 전망)" disabled={loading} />
+            <select value={domain} onChange={e=>setDomain(e.target.value)}
+              className="bg-slate-800/80 border border-slate-600/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500">
+              {Object.entries(DOMAINS).map(([k,v])=>(
+                <option key={k} value={k}>{v.emoji} {v.label}</option>
+              ))}
+            </select>
+            <button type="submit" disabled={loading || !topic.trim()}
+              className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-semibold px-6 py-3 rounded-xl text-sm transition flex items-center gap-2 whitespace-nowrap">
+              {loading ? <><span className="spin-slow inline-block">⏳</span> 분석 중...</> : <><span>🔍</span> 리서치 시작</>}
+            </button>
+          </div>
+        </form>
+      );
+    }
+
+    // ─── Verdict 카드 ──────────────────────────────────────────────────────
+    function VerdictCard({ verdict, topic, domainName }) {
+      const s = stanceStyle(verdict.final_stance);
+      return (
+        <div className={`card rounded-2xl p-6 border border-slate-700/50 mb-6 shadow-lg ${s.glow}`}>
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <div className="text-center md:text-left">
+              <div className={`text-4xl font-black ${s.text}`}>{verdict.final_stance}</div>
+              <div className="text-xs text-slate-400 mt-1">확신도 {verdict.confidence_score}%</div>
+              <div className="w-24 bg-slate-700/50 rounded-full h-2 mt-2">
+                <div className={`h-2 rounded-full progress-bar ${s.text.replace("text-","bg-")}`}
+                  style={{width:`${verdict.confidence_score}%`}} />
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="text-xs text-slate-400 mb-1">🏷️ {domainName} | 📌 {topic}</div>
+              <p className="text-sm text-slate-300 leading-relaxed">{verdict.summary}</p>
+            </div>
+          </div>
+          {/* 투표 현황 */}
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-700/30">
+            {Object.entries(verdict.stance_votes || {}).map(([agent, stance]) => {
+              const as = stanceStyle(stance);
+              return (
+                <span key={agent} className={`px-3 py-1 rounded-full text-xs font-semibold border ${as.bg}`}>
+                  {agent}: {stance}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 에이전트 분석 카드 ────────────────────────────────────────────────
+    function AgentCards({ reports }) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+          {reports.map((r, i) => {
+            const s = stanceStyle(r.stance);
+            return (
+              <div key={i} className={`card rounded-xl p-4 border border-slate-700/50 shadow ${s.glow}`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-3xl">{r.avatar}</span>
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-white">{r.agent_name}</div>
+                    <div className="text-xs text-slate-400">{r.role}</div>
+                  </div>
+                  <div className="text-right">
+                    <span className={`px-2 py-1 rounded text-xs font-bold border ${s.bg}`}>{r.stance}</span>
+                    <div className="text-xs text-slate-500 mt-1 mono">{r.confidence_score}%</div>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed mb-2">{r.analysis.slice(0, 200)}...</p>
+                <div className="space-y-1">
+                  {(r.key_points || []).slice(0,3).map((kp,j) => (
+                    <div key={j} className="text-xs text-slate-400 flex gap-1">
+                      <span className="text-blue-400 flex-shrink-0">▸</span>{kp}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ─── 반론 타임라인 ─────────────────────────────────────────────────────
+    function CritiqueTimeline({ critiques, reports }) {
+      const [expanded, setExpanded] = useState(null);
+      return (
+        <div className="card rounded-xl border border-slate-700/50 mb-6">
+          <div className="p-4 border-b border-slate-700/50 flex items-center gap-2">
+            <span className="text-lg">⚔️</span>
+            <h3 className="font-bold text-white">교차 반론 (Phase 2)</h3>
+          </div>
+          <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+            {critiques.map((c, i) => {
+              const fromR = reports.find(r => r.agent_name === c.from_agent);
+              const isRight = i % 2 !== 0;
+              return (
+                <div key={i} className={`flex gap-3 ${isRight?"flex-row-reverse":""}`}>
+                  <div className="text-2xl flex-shrink-0">{fromR?.avatar||"🤖"}</div>
+                  <div className={`max-w-[85%] ${isRight?"bubble-right":"bubble-left"} bg-slate-700/40 rounded-2xl p-3 border border-orange-700/20`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-orange-300">{c.from_agent}</span>
+                      <span className="text-xs text-slate-500">→</span>
+                      <span className="text-xs text-slate-400">{c.to_agent}</span>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {expanded===i ? c.critique : c.critique.slice(0,150)+"..."}
+                    </p>
+                    <button onClick={()=>setExpanded(expanded===i?null:i)}
+                      className="text-xs text-orange-400 mt-1 hover:text-orange-300">
+                      {expanded===i?"접기":"더 보기"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 인사이트 & 리스크 ─────────────────────────────────────────────────
+    function InsightsPanel({ verdict }) {
+      return (
+        <div className="grid md:grid-cols-2 gap-3 mb-6">
+          <div className="card rounded-xl p-4 border border-slate-700/50">
+            <h3 className="text-sm font-bold text-slate-300 mb-3">💡 핵심 인사이트</h3>
+            <div className="space-y-2">
+              {(verdict.key_insights||[]).map((item,i)=>(
+                <div key={i} className="text-xs text-slate-300 flex gap-2">
+                  <span className="text-blue-400 flex-shrink-0">▸</span>{item}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="card rounded-xl p-4 border border-slate-700/50">
+            <h3 className="text-sm font-bold text-slate-300 mb-3">⚠️ 리스크 요인</h3>
+            <div className="space-y-2">
+              {(verdict.risk_factors||[]).map((item,i)=>(
+                <div key={i} className="text-xs text-red-300/80 flex gap-2">
+                  <span className="text-red-400 flex-shrink-0">▸</span>{item}
+                </div>
+              ))}
+            </div>
+            {verdict.action_items && verdict.action_items.length > 0 && (
+              <>
+                <h3 className="text-sm font-bold text-slate-300 mt-4 mb-3">🎯 실행 제안</h3>
+                <div className="space-y-2">
+                  {verdict.action_items.map((item,i)=>(
+                    <div key={i} className="text-xs text-green-300/80 flex gap-2">
+                      <span className="text-green-400 flex-shrink-0">▸</span>{item}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 소스 목록 ─────────────────────────────────────────────────────────
+    function SourcesList({ researchData }) {
+      const sources = researchData?.sources || [];
+      if (sources.length === 0) return null;
+      return (
+        <div className="card rounded-xl border border-slate-700/50 mb-6">
+          <div className="p-4 border-b border-slate-700/50 flex items-center gap-2">
+            <span className="text-lg">📚</span>
+            <h3 className="font-bold text-white">참고 소스 ({sources.length}건)</h3>
+          </div>
+          <div className="p-4 space-y-2 max-h-60 overflow-y-auto">
+            {sources.map((s,i)=>(
+              <a key={i} href={s.url} target="_blank" rel="noopener"
+                className="block bg-slate-800/40 rounded-lg p-3 hover:bg-slate-700/40 transition border border-slate-700/30">
+                <div className="text-xs font-semibold text-blue-400 truncate">{s.title}</div>
+                <div className="text-xs text-slate-500 truncate mt-0.5">{s.url}</div>
+              </a>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 히스토리 ──────────────────────────────────────────────────────────
+    function HistoryPanel({ history, onSelect }) {
+      if (!history || history.length === 0) return null;
+      return (
+        <div className="card rounded-xl border border-slate-700/50 mb-6">
+          <div className="p-4 border-b border-slate-700/50 flex items-center gap-2">
+            <span className="text-lg">📜</span>
+            <h3 className="font-bold text-white">리서치 히스토리</h3>
+          </div>
+          <div className="p-4 space-y-2 max-h-64 overflow-y-auto">
+            {history.map((h,i)=>{
+              const s = stanceStyle(h.final_stance);
+              const d = DOMAINS[h.domain] || DOMAINS.general;
+              return (
+                <button key={i} onClick={()=>onSelect(h.id)}
+                  className="w-full text-left bg-slate-800/40 rounded-lg p-3 hover:bg-slate-700/40 transition border border-slate-700/30">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm">{d.emoji}</span>
+                    <span className="text-xs font-semibold text-white flex-1 truncate">{h.topic}</span>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold border ${s.bg}`}>{h.final_stance}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 truncate">{h.summary}</div>
+                  <div className="text-xs text-slate-600 mt-1">{new Date(h.generated_at).toLocaleString("ko-KR")}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── 메인 앱 ───────────────────────────────────────────────────────────
+    function App() {
+      const [report, setReport] = useState(null);
+      const [history, setHistory] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [submitting, setSubmitting] = useState(false);
+      const [showSettings, setShowSettings] = useState(false);
+      const [message, setMessage] = useState(null);
+
+      // 초기 로드
+      useEffect(() => {
+        Promise.all([
+          fetch("./data/latest_report.json?t="+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null),
+          fetch("./data/history/index.json?t="+Date.now()).then(r=>r.ok?r.json():[]).catch(()=>[]),
+        ]).then(([rep, hist]) => {
+          setReport(rep);
+          setHistory(hist || []);
+          setLoading(false);
+        });
+      }, []);
+
+      // 히스토리 보고서 로드
+      const loadHistoryReport = useCallback((id) => {
+        fetch(`./data/history/${id}.json?t=`+Date.now())
+          .then(r=>r.json())
+          .then(data=>setReport(data))
+          .catch(()=>setMessage({type:"error",text:"보고서를 불러올 수 없습니다."}));
+      }, []);
+
+      // 리서치 트리거
+      const handleSubmit = useCallback(async (topic, domain) => {
+        const token = localStorage.getItem("gh_pat");
+        if (!token) {
+          setShowSettings(true);
+          setMessage({type:"warning",text:"먼저 GitHub PAT을 설정해주세요."});
+          return;
+        }
+        setSubmitting(true);
+        setMessage(null);
+        try {
+          const res = await fetch(
+            `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`,
+            {
+              method: "POST",
+              headers: {
+                "Authorization": `token ${token}`,
+                "Accept": "application/vnd.github+json",
+              },
+              body: JSON.stringify({ ref: "main", inputs: { topic, domain } }),
+            }
+          );
+          if (res.status === 204) {
+            setMessage({type:"success",text:`"${topic}" 리서치가 시작되었습니다! 약 3~5분 후 결과가 표시됩니다.`});
+          } else if (res.status === 401 || res.status === 403) {
+            setMessage({type:"error",text:"PAT 토큰이 유효하지 않습니다. 설정에서 다시 입력해주세요."});
+            setShowSettings(true);
+          } else {
+            const err = await res.json().catch(()=>({}));
+            setMessage({type:"error",text:`트리거 실패: ${err.message || res.status}`});
+          }
+        } catch (e) {
+          setMessage({type:"error",text:`네트워크 오류: ${e.message}`});
+        }
+        setSubmitting(false);
+      }, []);
+
+      if (loading) return (
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="text-5xl mb-4 pulse-slow">🧠</div>
+            <div className="text-slate-300 font-semibold">로딩 중...</div>
+          </div>
+        </div>
+      );
+
+      return (
+        <div className="min-h-screen">
+          {/* 헤더 */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950/30 to-slate-900 border-b border-slate-800 px-6 py-5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">🧠</div>
+              <div>
+                <h1 className="text-xl font-black tracking-tight text-white">Multi-Agent Researcher</h1>
+                <p className="text-xs text-slate-400 mono">AI-POWERED MULTI-PERSPECTIVE RESEARCH SYSTEM</p>
+              </div>
+            </div>
+            <button onClick={()=>setShowSettings(true)}
+              className="text-slate-400 hover:text-white text-sm transition flex items-center gap-1">
+              ⚙️ <span className="hidden md:inline">설정</span>
+            </button>
+          </div>
+
+          <SettingsPanel show={showSettings} onClose={()=>setShowSettings(false)} />
+
+          <div className="max-w-6xl mx-auto px-4 py-6">
+            {/* 메시지 */}
+            {message && (
+              <div className={`mb-4 p-3 rounded-xl text-sm border ${
+                message.type==="success"?"bg-green-900/20 border-green-700/30 text-green-400":
+                message.type==="warning"?"bg-yellow-900/20 border-yellow-700/30 text-yellow-400":
+                "bg-red-900/20 border-red-700/30 text-red-400"
+              }`}>
+                {message.text}
+                <button onClick={()=>setMessage(null)} className="ml-2 opacity-50 hover:opacity-100">✕</button>
+              </div>
+            )}
+
+            {/* 입력 폼 */}
+            <ResearchForm onSubmit={handleSubmit} loading={submitting} />
+
+            {report ? (
+              <>
+                {/* Verdict */}
+                <VerdictCard verdict={report.verdict} topic={report.topic} domainName={report.domain_name} />
+
+                {/* 인사이트 & 리스크 */}
+                <InsightsPanel verdict={report.verdict} />
+
+                {/* 에이전트 분석 카드 */}
+                <h3 className="text-sm font-bold text-slate-400 mb-3">📋 에이전트 분석 (Phase 1)</h3>
+                <AgentCards reports={report.debate.phase1_reports} />
+
+                {/* 반론 타임라인 */}
+                <CritiqueTimeline critiques={report.debate.phase2_critiques} reports={report.debate.phase1_reports} />
+
+                {/* 소스 목록 */}
+                <SourcesList researchData={report.research_data} />
+              </>
+            ) : (
+              <div className="card rounded-2xl p-12 border border-slate-700/50 text-center">
+                <div className="text-5xl mb-4">🔍</div>
+                <div className="text-slate-300 font-semibold mb-2">아직 리서치 결과가 없습니다</div>
+                <div className="text-sm text-slate-500">위 폼에서 주제를 입력하고 리서치를 시작해보세요!</div>
+              </div>
+            )}
+
+            {/* 히스토리 */}
+            <HistoryPanel history={history} onSelect={loadHistoryReport} />
+
+            {/* 푸터 */}
+            <div className="text-center py-8 text-xs text-slate-600">
+              <div className="mb-1">🧠 Multi-Agent Researcher — AI Multi-Perspective Research System</div>
+              <div>⚠️ 본 보고서는 AI 생성 정보이며, 최종 판단은 본인의 책임입니다.</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

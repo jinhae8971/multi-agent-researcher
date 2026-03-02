@@ -1,0 +1,6 @@
+{
+  "anthropic_api_key": "sk-ant-xxxxx",
+  "tavily_api_key": "tvly-xxxxx",
+  "telegram_token": "your-telegram-bot-token",
+  "telegram_chat_id": "your-chat-id"
+}
