@@ -1,0 +1,11 @@
+# LLM
+anthropic>=0.40.0
+
+# 웹 리서치
+tavily-python>=0.5.0
+
+# HTTP
+requests>=2.31.0
+
+# 유틸
+python-dotenv>=1.0.0
