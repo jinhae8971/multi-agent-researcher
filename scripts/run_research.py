@@ -66,13 +66,14 @@ def load_config() -> dict:
 
 # ─── Telegram 알림 ────────────────────────────────────────────────────────────
 
-def send_telegram(verdict: dict, topic: str, domain_name: str, token: str, chat_id: str):
+def send_telegram(verdict: dict, topic: str, domain_name: str, token: str, chat_id: str,
+                   engine_mode: str = "debate"):
     try:
         import requests
         stance = verdict.get("final_stance", "NEUTRAL")
         conf = verdict.get("confidence_score", 50)
 
-        # 도메인별 이모지 매핑
+        # 스탠스별 이모지 매핑
         stance_upper = stance.upper()
         if stance_upper in ("BUY", "BULLISH", "POSITIVE", "STRONG_AGREE", "AGREE"):
             emoji = "🟢"
@@ -81,13 +82,29 @@ def send_telegram(verdict: dict, topic: str, domain_name: str, token: str, chat_
         else:
             emoji = "🟡"
 
+        engine_label = "📝 MARS" if engine_mode == "mars" else "⚔️ Debate"
+
         msg = (
             f"🧠 <b>Multi-Agent Research Report</b>\n\n"
             f"📌 주제: <b>{topic}</b>\n"
-            f"🏷️ 도메인: {domain_name}\n\n"
+            f"🏷️ 도메인: {domain_name} | 엔진: {engine_label}\n\n"
             f"{emoji} 최종 판단: <b>{stance}</b> "
             f"(확신도 {conf}%)\n\n"
             f"📋 <b>요약</b>\n{verdict.get('summary', '')[:400]}\n\n"
+        )
+
+        # MARS 모드: 리뷰어 결정 표시
+        if engine_mode == "mars":
+            reviewer_decisions = verdict.get("reviewer_decisions", {})
+            if reviewer_decisions:
+                dec_map = {"agree": "✅", "disagree": "❌", "partial": "⚠️"}
+                dec_lines = [f"  {dec_map.get(d, '❓')} {name}: {d}" for name, d in reviewer_decisions.items()]
+                msg += f"🔍 <b>리뷰어 결정</b>\n" + "\n".join(dec_lines) + "\n"
+            if verdict.get("had_rebuttal"):
+                msg += f"🔄 Author Rebuttal 수행됨\n"
+            msg += "\n"
+
+        msg += (
             f"💡 인사이트: {', '.join(verdict.get('key_insights', [])[:3])}\n"
             f"⚠️ 리스크: {', '.join(verdict.get('risk_factors', [])[:3])}\n\n"
             f"📎 대시보드: https://jinhae8971.github.io/multi-agent-researcher/"
@@ -313,7 +330,8 @@ def main():
 
     # 10) Telegram 알림
     if cfg.get("telegram_token") and cfg.get("telegram_chat_id"):
-        send_telegram(verdict, topic, preset["name"], cfg["telegram_token"], cfg["telegram_chat_id"])
+        send_telegram(verdict, topic, preset["name"], cfg["telegram_token"], cfg["telegram_chat_id"],
+                      engine_mode=engine_mode)
 
     logger.info("===== 파이프라인 완료 =====")
     logger.info(f"최종 판단: {verdict.get('final_stance')} (확신도 {verdict.get('confidence_score')}%)")

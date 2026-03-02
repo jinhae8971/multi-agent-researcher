@@ -168,15 +168,16 @@
           {/* 투표 / 리뷰어 결정 현황 */}
           <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-700/30">
             {isMARS && verdict.reviewer_decisions ? (
-              verdict.reviewer_decisions.map((rd, i) => {
-                const decColor = rd.decision === "agree"
+              Object.entries(verdict.reviewer_decisions).map(([name, decision]) => {
+                const decColor = decision === "agree"
                   ? "bg-green-500/15 border-green-500/30 text-green-400"
-                  : rd.decision === "disagree"
+                  : decision === "disagree"
                   ? "bg-red-500/15 border-red-500/30 text-red-400"
                   : "bg-yellow-500/15 border-yellow-500/30 text-yellow-400";
+                const icon = decision === "agree" ? "✅" : decision === "disagree" ? "❌" : "⚠️";
                 return (
-                  <span key={i} className={`px-3 py-1 rounded-full text-xs font-semibold border ${decColor}`}>
-                    {rd.reviewer}: {rd.decision} ({rd.confidence}/5)
+                  <span key={name} className={`px-3 py-1 rounded-full text-xs font-semibold border ${decColor}`}>
+                    {icon} {name}: {decision}
                   </span>
                 );
               })
@@ -189,6 +190,11 @@
                   </span>
                 );
               })
+            )}
+            {isMARS && verdict.had_rebuttal && (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold border bg-cyan-500/15 border-cyan-500/30 text-cyan-400">
+                🔄 Rebuttal 수행됨
+              </span>
             )}
           </div>
         </div>
