@@ -1,5 +1,16 @@
 [
   {
+    "id": "20260302_173237",
+    "topic": "지금 시점 기준 국제 정세를 고려할때 내일 코스피 시장의 등락을 예상해줘",
+    "domain": "stock",
+    "domain_name": "주식/투자 분석",
+    "engine_mode": "mars",
+    "final_stance": "SELL",
+    "confidence_score": 75,
+    "summary": "",
+    "generated_at": "2026-03-02T17:36:28.618926"
+  },
+  {
     "id": "20260302_164233",
     "topic": "지금 시점 기준 국제 정세를 고려할때 내일 코스피 시장의 등락을 예상해줘",
     "domain": "stock",
