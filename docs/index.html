@@ -9,14 +9,14 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
-    * { font-family: 'Noto Sans KR', sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&family=Pretendard:wght@300;400;500;600;700;800;900&display=swap');
+    * { font-family: 'Pretendard', 'Noto Sans KR', sans-serif; }
     .mono { font-family: 'JetBrains Mono', monospace; }
-    body { background: #0a0f1e; color: #e2e8f0; }
+    body { background: #fafbfc; color: #111827; }
     ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #1a2035; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-    .card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+    ::-webkit-scrollbar-track { background: #f3f4f6; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    .card { background: #ffffff; }
     .bubble-left  { border-radius: 4px 18px 18px 18px; }
     .bubble-right { border-radius: 18px 4px 18px 18px; }
     @keyframes pulse-slow { 0%,100%{opacity:1} 50%{opacity:.6} }
@@ -46,10 +46,10 @@
     function stanceStyle(stance) {
       const s = (stance || "").toUpperCase();
       if (["BUY","BULLISH","POSITIVE","STRONG_AGREE","AGREE"].includes(s))
-        return { text: "text-green-400", bg: "bg-green-500/15 border-green-500/30 text-green-400", glow: "shadow-green-500/20" };
+        return { text: "text-green-700", bg: "bg-green-50 border-green-200 text-green-700", glow: "" };
       if (["SELL","BEARISH","NEGATIVE","DISAGREE"].includes(s))
-        return { text: "text-red-400", bg: "bg-red-500/15 border-red-500/30 text-red-400", glow: "shadow-red-500/20" };
-      return { text: "text-yellow-400", bg: "bg-yellow-500/15 border-yellow-500/30 text-yellow-400", glow: "shadow-yellow-500/20" };
+        return { text: "text-red-700", bg: "bg-red-50 border-red-200 text-red-700", glow: "" };
+      return { text: "text-yellow-700", bg: "bg-yellow-50 border-yellow-200 text-yellow-700", glow: "" };
     }
 
     // ─── 설정 패널 ─────────────────────────────────────────────────────────
@@ -57,23 +57,23 @@
       const [pat, setPat] = useState(localStorage.getItem("gh_pat") || "");
       if (!show) return null;
       return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-          <div className="card rounded-2xl p-6 border border-slate-700 max-w-md w-full" onClick={e=>e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-white mb-4">GitHub PAT 설정</h3>
-            <p className="text-xs text-slate-400 mb-3">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+          <div className="card rounded-lg p-6 border border-e5e7eb max-w-md w-full shadow-sm" onClick={e=>e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">GitHub PAT 설정</h3>
+            <p className="text-xs text-gray-600 mb-3">
               workflow_dispatch 트리거에 필요합니다. Fine-grained PAT (Actions: write)을 입력해주세요.
               브라우저 localStorage에만 저장됩니다.
             </p>
             <input type="password" value={pat} onChange={e=>setPat(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white mb-3"
+              className="w-full bg-white border border-e5e7eb rounded-lg px-3 py-2 text-sm text-gray-900 mb-3 focus:outline-none focus:border-blue-500"
               placeholder="ghp_xxxxxxxxxxxx" />
             <div className="flex gap-2">
               <button onClick={()=>{localStorage.setItem("gh_pat",pat);onClose()}}
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold py-2 rounded-lg transition">
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 rounded-lg transition">
                 저장
               </button>
               <button onClick={()=>{localStorage.removeItem("gh_pat");setPat("");onClose()}}
-                className="px-4 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm rounded-lg transition">
+                className="px-4 bg-red-50 hover:bg-red-100 text-red-700 text-sm rounded-lg transition border border-red-200">
                 삭제
               </button>
             </div>
@@ -94,23 +94,23 @@
       };
 
       return (
-        <form onSubmit={handleSubmit} className="card rounded-2xl p-5 border border-slate-700/50 mb-6">
+        <form onSubmit={handleSubmit} className="card rounded-lg p-5 border border-e5e7eb mb-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-2xl">🧠</span>
-            <h2 className="text-base font-bold text-white">새 리서치 요청</h2>
+            <h2 className="text-base font-bold text-gray-900">새 리서치 요청</h2>
           </div>
           <div className="flex flex-col md:flex-row gap-3">
             <input type="text" value={topic} onChange={e=>setTopic(e.target.value)}
-              className="flex-1 bg-slate-800/80 border border-slate-600/50 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition"
+              className="flex-1 bg-white border border-e5e7eb rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition"
               placeholder="리서치 주제를 입력하세요 (예: AI 반도체 시장 전망)" disabled={loading} />
             <select value={domain} onChange={e=>setDomain(e.target.value)}
-              className="bg-slate-800/80 border border-slate-600/50 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500">
+              className="bg-white border border-e5e7eb rounded-lg px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-blue-500">
               {Object.entries(DOMAINS).map(([k,v])=>(
                 <option key={k} value={k}>{v.emoji} {v.label}</option>
               ))}
             </select>
             <button type="submit" disabled={loading || !topic.trim()}
-              className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-semibold px-6 py-3 rounded-xl text-sm transition flex items-center gap-2 whitespace-nowrap">
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-600 text-white font-semibold px-6 py-3 rounded-lg text-sm transition flex items-center gap-2 whitespace-nowrap">
               {loading ? <><span className="spin-slow inline-block">⏳</span> 분석 중...</> : <><span>🔍</span> 리서치 시작</>}
             </button>
           </div>
@@ -122,23 +122,23 @@
     function VerdictCard({ verdict, topic, domainName }) {
       const s = stanceStyle(verdict.final_stance);
       return (
-        <div className={`card rounded-2xl p-6 border border-slate-700/50 mb-6 shadow-lg ${s.glow}`}>
+        <div className={`card rounded-lg p-6 border border-e5e7eb mb-6 shadow-sm`}>
           <div className="flex flex-col md:flex-row md:items-center gap-4">
             <div className="text-center md:text-left">
               <div className={`text-4xl font-black ${s.text}`}>{verdict.final_stance}</div>
-              <div className="text-xs text-slate-400 mt-1">확신도 {verdict.confidence_score}%</div>
-              <div className="w-24 bg-slate-700/50 rounded-full h-2 mt-2">
-                <div className={`h-2 rounded-full progress-bar ${s.text.replace("text-","bg-")}`}
+              <div className="text-xs text-gray-600 mt-1">확신도 {verdict.confidence_score}%</div>
+              <div className="w-24 bg-gray-200 rounded-full h-2 mt-2">
+                <div className={`h-2 rounded-full progress-bar ${s.text.replace("text-gray-","bg-gray-").replace("text-green-","bg-green-").replace("text-red-","bg-red-").replace("text-yellow-","bg-yellow-")}`}
                   style={{width:`${verdict.confidence_score}%`}} />
               </div>
             </div>
             <div className="flex-1">
-              <div className="text-xs text-slate-400 mb-1">🏷️ {domainName} | 📌 {topic}</div>
-              <p className="text-sm text-slate-300 leading-relaxed">{verdict.summary}</p>
+              <div className="text-xs text-gray-600 mb-1">🏷️ {domainName} | 📌 {topic}</div>
+              <p className="text-sm text-gray-700 leading-relaxed">{verdict.summary}</p>
             </div>
           </div>
           {/* 투표 현황 */}
-          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-700/30">
+          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200">
             {Object.entries(verdict.stance_votes || {}).map(([agent, stance]) => {
               const as = stanceStyle(stance);
               return (
@@ -159,23 +159,23 @@
           {reports.map((r, i) => {
             const s = stanceStyle(r.stance);
             return (
-              <div key={i} className={`card rounded-xl p-4 border border-slate-700/50 shadow ${s.glow}`}>
+              <div key={i} className={`card rounded-lg p-4 border border-e5e7eb shadow-sm`}>
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-3xl">{r.avatar}</span>
                   <div className="flex-1">
-                    <div className="text-sm font-bold text-white">{r.agent_name}</div>
-                    <div className="text-xs text-slate-400">{r.role}</div>
+                    <div className="text-sm font-bold text-gray-900">{r.agent_name}</div>
+                    <div className="text-xs text-gray-600">{r.role}</div>
                   </div>
                   <div className="text-right">
                     <span className={`px-2 py-1 rounded text-xs font-bold border ${s.bg}`}>{r.stance}</span>
-                    <div className="text-xs text-slate-500 mt-1 mono">{r.confidence_score}%</div>
+                    <div className="text-xs text-gray-600 mt-1 mono">{r.confidence_score}%</div>
                   </div>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed mb-2">{r.analysis.slice(0, 200)}...</p>
+                <p className="text-xs text-gray-700 leading-relaxed mb-2">{r.analysis.slice(0, 200)}...</p>
                 <div className="space-y-1">
                   {(r.key_points || []).slice(0,3).map((kp,j) => (
-                    <div key={j} className="text-xs text-slate-400 flex gap-1">
-                      <span className="text-blue-400 flex-shrink-0">▸</span>{kp}
+                    <div key={j} className="text-xs text-gray-600 flex gap-1">
+                      <span className="text-blue-600 flex-shrink-0">▸</span>{kp}
                     </div>
                   ))}
                 </div>
@@ -190,10 +190,10 @@
     function CritiqueTimeline({ critiques, reports }) {
       const [expanded, setExpanded] = useState(null);
       return (
-        <div className="card rounded-xl border border-slate-700/50 mb-6">
-          <div className="p-4 border-b border-slate-700/50 flex items-center gap-2">
+        <div className="card rounded-lg border border-e5e7eb mb-6 shadow-sm">
+          <div className="p-4 border-b border-e5e7eb flex items-center gap-2">
             <span className="text-lg">⚔️</span>
-            <h3 className="font-bold text-white">교차 반론 (Phase 2)</h3>
+            <h3 className="font-bold text-gray-900">교차 반론 (Phase 2)</h3>
           </div>
           <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
             {critiques.map((c, i) => {
@@ -202,17 +202,17 @@
               return (
                 <div key={i} className={`flex gap-3 ${isRight?"flex-row-reverse":""}`}>
                   <div className="text-2xl flex-shrink-0">{fromR?.avatar||"🤖"}</div>
-                  <div className={`max-w-[85%] ${isRight?"bubble-right":"bubble-left"} bg-slate-700/40 rounded-2xl p-3 border border-orange-700/20`}>
+                  <div className={`max-w-[85%] ${isRight?"bubble-right":"bubble-left"} bg-gray-50 rounded-lg p-3 border border-gray-200`}>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-orange-300">{c.from_agent}</span>
-                      <span className="text-xs text-slate-500">→</span>
-                      <span className="text-xs text-slate-400">{c.to_agent}</span>
+                      <span className="text-xs font-bold text-gray-700">{c.from_agent}</span>
+                      <span className="text-xs text-gray-400">→</span>
+                      <span className="text-xs text-gray-600">{c.to_agent}</span>
                     </div>
-                    <p className="text-xs text-slate-300 leading-relaxed">
+                    <p className="text-xs text-gray-700 leading-relaxed">
                       {expanded===i ? c.critique : c.critique.slice(0,150)+"..."}
                     </p>
                     <button onClick={()=>setExpanded(expanded===i?null:i)}
-                      className="text-xs text-orange-400 mt-1 hover:text-orange-300">
+                      className="text-xs text-blue-600 mt-1 hover:text-blue-700">
                       {expanded===i?"접기":"더 보기"}
                     </button>
                   </div>
@@ -228,32 +228,32 @@
     function InsightsPanel({ verdict }) {
       return (
         <div className="grid md:grid-cols-2 gap-3 mb-6">
-          <div className="card rounded-xl p-4 border border-slate-700/50">
-            <h3 className="text-sm font-bold text-slate-300 mb-3">💡 핵심 인사이트</h3>
+          <div className="card rounded-lg p-4 border border-e5e7eb shadow-sm">
+            <h3 className="text-sm font-bold text-gray-900 mb-3">💡 핵심 인사이트</h3>
             <div className="space-y-2">
               {(verdict.key_insights||[]).map((item,i)=>(
-                <div key={i} className="text-xs text-slate-300 flex gap-2">
-                  <span className="text-blue-400 flex-shrink-0">▸</span>{item}
+                <div key={i} className="text-xs text-gray-700 flex gap-2">
+                  <span className="text-blue-600 flex-shrink-0">▸</span>{item}
                 </div>
               ))}
             </div>
           </div>
-          <div className="card rounded-xl p-4 border border-slate-700/50">
-            <h3 className="text-sm font-bold text-slate-300 mb-3">⚠️ 리스크 요인</h3>
+          <div className="card rounded-lg p-4 border border-e5e7eb shadow-sm">
+            <h3 className="text-sm font-bold text-gray-900 mb-3">⚠️ 리스크 요인</h3>
             <div className="space-y-2">
               {(verdict.risk_factors||[]).map((item,i)=>(
-                <div key={i} className="text-xs text-red-300/80 flex gap-2">
-                  <span className="text-red-400 flex-shrink-0">▸</span>{item}
+                <div key={i} className="text-xs text-red-700 flex gap-2">
+                  <span className="text-red-600 flex-shrink-0">▸</span>{item}
                 </div>
               ))}
             </div>
             {verdict.action_items && verdict.action_items.length > 0 && (
               <>
-                <h3 className="text-sm font-bold text-slate-300 mt-4 mb-3">🎯 실행 제안</h3>
+                <h3 className="text-sm font-bold text-gray-900 mt-4 mb-3">🎯 실행 제안</h3>
                 <div className="space-y-2">
                   {verdict.action_items.map((item,i)=>(
-                    <div key={i} className="text-xs text-green-300/80 flex gap-2">
-                      <span className="text-green-400 flex-shrink-0">▸</span>{item}
+                    <div key={i} className="text-xs text-green-700 flex gap-2">
+                      <span className="text-green-600 flex-shrink-0">▸</span>{item}
                     </div>
                   ))}
                 </div>
@@ -269,17 +269,17 @@
       const sources = researchData?.sources || [];
       if (sources.length === 0) return null;
       return (
-        <div className="card rounded-xl border border-slate-700/50 mb-6">
-          <div className="p-4 border-b border-slate-700/50 flex items-center gap-2">
+        <div className="card rounded-lg border border-e5e7eb mb-6 shadow-sm">
+          <div className="p-4 border-b border-e5e7eb flex items-center gap-2">
             <span className="text-lg">📚</span>
-            <h3 className="font-bold text-white">참고 소스 ({sources.length}건)</h3>
+            <h3 className="font-bold text-gray-900">참고 소스 ({sources.length}건)</h3>
           </div>
           <div className="p-4 space-y-2 max-h-60 overflow-y-auto">
             {sources.map((s,i)=>(
               <a key={i} href={s.url} target="_blank" rel="noopener"
-                className="block bg-slate-800/40 rounded-lg p-3 hover:bg-slate-700/40 transition border border-slate-700/30">
-                <div className="text-xs font-semibold text-blue-400 truncate">{s.title}</div>
-                <div className="text-xs text-slate-500 truncate mt-0.5">{s.url}</div>
+                className="block bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition border border-e5e7eb">
+                <div className="text-xs font-semibold text-blue-600 truncate">{s.title}</div>
+                <div className="text-xs text-gray-600 truncate mt-0.5">{s.url}</div>
               </a>
             ))}
           </div>
@@ -291,10 +291,10 @@
     function HistoryPanel({ history, onSelect }) {
       if (!history || history.length === 0) return null;
       return (
-        <div className="card rounded-xl border border-slate-700/50 mb-6">
-          <div className="p-4 border-b border-slate-700/50 flex items-center gap-2">
+        <div className="card rounded-lg border border-e5e7eb mb-6 shadow-sm">
+          <div className="p-4 border-b border-e5e7eb flex items-center gap-2">
             <span className="text-lg">📜</span>
-            <h3 className="font-bold text-white">리서치 히스토리</h3>
+            <h3 className="font-bold text-gray-900">리서치 히스토리</h3>
           </div>
           <div className="p-4 space-y-2 max-h-64 overflow-y-auto">
             {history.map((h,i)=>{
@@ -302,14 +302,14 @@
               const d = DOMAINS[h.domain] || DOMAINS.general;
               return (
                 <button key={i} onClick={()=>onSelect(h.id)}
-                  className="w-full text-left bg-slate-800/40 rounded-lg p-3 hover:bg-slate-700/40 transition border border-slate-700/30">
+                  className="w-full text-left bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition border border-e5e7eb">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm">{d.emoji}</span>
-                    <span className="text-xs font-semibold text-white flex-1 truncate">{h.topic}</span>
+                    <span className="text-xs font-semibold text-gray-900 flex-1 truncate">{h.topic}</span>
                     <span className={`px-2 py-0.5 rounded text-xs font-bold border ${s.bg}`}>{h.final_stance}</span>
                   </div>
-                  <div className="text-xs text-slate-500 truncate">{h.summary}</div>
-                  <div className="text-xs text-slate-600 mt-1">{new Date(h.generated_at).toLocaleString("ko-KR")}</div>
+                  <div className="text-xs text-gray-600 truncate">{h.summary}</div>
+                  <div className="text-xs text-gray-500 mt-1">{new Date(h.generated_at).toLocaleString("ko-KR")}</div>
                 </button>
               );
             })}
@@ -385,10 +385,10 @@
       }, []);
 
       if (loading) return (
-        <div className="flex items-center justify-center h-screen">
+        <div className="flex items-center justify-center h-screen bg-white">
           <div className="text-center">
             <div className="text-5xl mb-4 pulse-slow">🧠</div>
-            <div className="text-slate-300 font-semibold">로딩 중...</div>
+            <div className="text-gray-700 font-semibold">로딩 중...</div>
           </div>
         </div>
       );
@@ -396,16 +396,16 @@
       return (
         <div className="min-h-screen">
           {/* 헤더 */}
-          <div className="bg-gradient-to-r from-slate-900 via-indigo-950/30 to-slate-900 border-b border-slate-800 px-6 py-5 flex items-center justify-between">
+          <div className="bg-white border-b border-e5e7eb px-6 py-5 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
               <div className="text-3xl">🧠</div>
               <div>
-                <h1 className="text-xl font-black tracking-tight text-white">Multi-Agent Researcher</h1>
-                <p className="text-xs text-slate-400 mono">AI-POWERED MULTI-PERSPECTIVE RESEARCH SYSTEM</p>
+                <h1 className="text-xl font-black tracking-tight text-gray-900">Multi-Agent Researcher</h1>
+                <p className="text-xs text-gray-600 mono">AI-POWERED MULTI-PERSPECTIVE RESEARCH SYSTEM</p>
               </div>
             </div>
             <button onClick={()=>setShowSettings(true)}
-              className="text-slate-400 hover:text-white text-sm transition flex items-center gap-1">
+              className="text-gray-600 hover:text-gray-900 text-sm transition flex items-center gap-1">
               ⚙️ <span className="hidden md:inline">설정</span>
             </button>
           </div>
@@ -415,10 +415,10 @@
           <div className="max-w-6xl mx-auto px-4 py-6">
             {/* 메시지 */}
             {message && (
-              <div className={`mb-4 p-3 rounded-xl text-sm border ${
-                message.type==="success"?"bg-green-900/20 border-green-700/30 text-green-400":
-                message.type==="warning"?"bg-yellow-900/20 border-yellow-700/30 text-yellow-400":
-                "bg-red-900/20 border-red-700/30 text-red-400"
+              <div className={`mb-4 p-3 rounded-lg text-sm border ${
+                message.type==="success"?"bg-green-50 border-green-200 text-green-700":
+                message.type==="warning"?"bg-yellow-50 border-yellow-200 text-yellow-700":
+                "bg-red-50 border-red-200 text-red-700"
               }`}>
                 {message.text}
                 <button onClick={()=>setMessage(null)} className="ml-2 opacity-50 hover:opacity-100">✕</button>
@@ -437,7 +437,7 @@
                 <InsightsPanel verdict={report.verdict} />
 
                 {/* 에이전트 분석 카드 */}
-                <h3 className="text-sm font-bold text-slate-400 mb-3">📋 에이전트 분석 (Phase 1)</h3>
+                <h3 className="text-sm font-bold text-gray-600 mb-3">📋 에이전트 분석 (Phase 1)</h3>
                 <AgentCards reports={report.debate.phase1_reports} />
 
                 {/* 반론 타임라인 */}
@@ -447,10 +447,10 @@
                 <SourcesList researchData={report.research_data} />
               </>
             ) : (
-              <div className="card rounded-2xl p-12 border border-slate-700/50 text-center">
+              <div className="card rounded-lg p-12 border border-e5e7eb text-center shadow-sm">
                 <div className="text-5xl mb-4">🔍</div>
-                <div className="text-slate-300 font-semibold mb-2">아직 리서치 결과가 없습니다</div>
-                <div className="text-sm text-slate-500">위 폼에서 주제를 입력하고 리서치를 시작해보세요!</div>
+                <div className="text-gray-900 font-semibold mb-2">아직 리서치 결과가 없습니다</div>
+                <div className="text-sm text-gray-600">위 폼에서 주제를 입력하고 리서치를 시작해보세요!</div>
               </div>
             )}
 
@@ -458,7 +458,7 @@
             <HistoryPanel history={history} onSelect={loadHistoryReport} />
 
             {/* 푸터 */}
-            <div className="text-center py-8 text-xs text-slate-600">
+            <div className="text-center py-8 text-xs text-gray-600">
               <div className="mb-1">🧠 Multi-Agent Researcher — AI Multi-Perspective Research System</div>
               <div>⚠️ 본 보고서는 AI 생성 정보이며, 최종 판단은 본인의 책임입니다.</div>
             </div>
