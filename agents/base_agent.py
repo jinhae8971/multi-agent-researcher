@@ -152,10 +152,19 @@ class BaseAgent:
         sources = research_data.get("sources", [])
         if sources:
             lines.append(f"\n[주요 소스 ({len(sources)}건)]")
-            for i, s in enumerate(sources[:8], 1):
+            for i, s in enumerate(sources[:10], 1):
                 lines.append(f"\n--- 소스 {i}: {s.get('title', '')} ---")
                 lines.append(f"URL: {s.get('url', '')}")
-                lines.append(s.get("content", "")[:400])
+                lines.append(s.get("content", "")[:800])
+
+        # 보강 소스 (정량 데이터 — 시세, 환율, 금리 등)
+        supplementary = research_data.get("supplementary_sources", [])
+        if supplementary:
+            lines.append(f"\n[📊 정량 보강 데이터 ({len(supplementary)}건) — 수치 인용 시 이 소스를 우선 참조]")
+            for i, s in enumerate(supplementary[:6], 1):
+                lines.append(f"\n--- 보강 소스 {i}: {s.get('title', '')} ---")
+                lines.append(f"URL: {s.get('url', '')}")
+                lines.append(s.get("content", "")[:800])
 
         # 반대 의견 소스
         counter = research_data.get("counter_sources", [])
@@ -164,7 +173,7 @@ class BaseAgent:
             for i, s in enumerate(counter[:4], 1):
                 lines.append(f"\n--- 반론 소스 {i}: {s.get('title', '')} ---")
                 lines.append(f"URL: {s.get('url', '')}")
-                lines.append(s.get("content", "")[:300])
+                lines.append(s.get("content", "")[:400])
 
         lines.append(f"\n[재확인] 데이터 수집 시각: {collected_at}")
         lines.append("위 소스에 포함된 구체적 수치만 인용하세요. 학습 데이터의 과거 수치를 사용하면 심각한 오류가 됩니다.")

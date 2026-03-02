@@ -185,6 +185,7 @@ def main():
         topic=topic,
         num_results=8,
         tavily_api_key=cfg.get("tavily_api_key"),
+        domain=domain,
     )
     logger.info(f"수집 완료: {research_data.get('total_sources', 0)}건 소스")
 
