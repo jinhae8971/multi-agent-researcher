@@ -192,14 +192,20 @@ def main():
     # 4-1) 도메인별 정량 시장 데이터 수집 (stock, economy)
     try:
         from orchestrator.market_data_collector import collect_market_snapshot
+        logger.info(f"[Step 1-1] 시장 정량 데이터 수집 중... (domain={domain})")
         market_snapshot = collect_market_snapshot(domain)
         if market_snapshot:
             research_data["market_snapshot"] = market_snapshot
-            logger.info(f"시장 정량 데이터 수집 완료")
-    except ImportError:
-        logger.warning("market_data_collector 모듈 로드 실패 (yfinance 미설치?)")
+            snapshot_keys = list(market_snapshot.keys())
+            stock_count = len(market_snapshot.get("top_stocks", []))
+            logger.info(f"시장 정량 데이터 수집 완료: keys={snapshot_keys}, stocks={stock_count}")
+        else:
+            logger.warning(f"market_snapshot이 None 반환됨 (domain={domain}은 수집 대상 아닐 수 있음)")
+    except ImportError as e:
+        logger.error(f"market_data_collector 모듈 로드 실패: {e}")
+        logger.error("yfinance/numpy 설치 확인 필요: pip install yfinance numpy")
     except Exception as e:
-        logger.warning(f"시장 데이터 수집 실패 (계속 진행): {e}")
+        logger.error(f"시장 데이터 수집 실패 (계속 진행): {type(e).__name__}: {e}")
 
     # 5) Moderator (두 모드 공통)
     moderator = Moderator(

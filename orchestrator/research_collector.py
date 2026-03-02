@@ -298,6 +298,7 @@ def collect_research(
     supplementary_sources = []
     if domain:
         supp_queries = _get_supplementary_queries(domain)
+        logger.info(f"보강 검색 시작: domain={domain}, queries={len(supp_queries)}개")
         for sq in supp_queries:
             logger.info(f"보강 검색: '{sq}'")
             supp_results = _search_tavily(
@@ -308,7 +309,13 @@ def collect_research(
                 include_raw=True,
             )
             if supp_results:
-                supplementary_sources.extend(_format_sources(supp_results))
+                formatted = _format_sources(supp_results)
+                logger.info(f"  → {len(formatted)}건 수집")
+                supplementary_sources.extend(formatted)
+            else:
+                logger.warning(f"  → 보강 검색 결과 없음: '{sq}'")
+    else:
+        logger.info("domain 미지정 → 보강 검색 건너뜀")
 
     # 4차 검색: 한국어 보강 (주제가 영어일 경우)
     kr_results = {}
