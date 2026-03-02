@@ -4,6 +4,10 @@ anthropic>=0.40.0
 # 웹 리서치
 tavily-python>=0.5.0
 
+# 시장 데이터 (stock/economy 도메인)
+yfinance>=0.2.30
+numpy>=1.24.0
+
 # HTTP
 requests>=2.31.0
 

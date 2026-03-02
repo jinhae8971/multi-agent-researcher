@@ -143,6 +143,11 @@ class BaseAgent:
             "",
         ]
 
+        # 📊 실시간 시장 정량 데이터 (yfinance) — 가장 신뢰할 수 있는 수치
+        market = research_data.get("market_snapshot")
+        if market:
+            lines.append(self._format_market_snapshot(market))
+
         # AI 요약
         ai_summary = research_data.get("ai_summary", "")
         if ai_summary:
@@ -177,6 +182,74 @@ class BaseAgent:
 
         lines.append(f"\n[재확인] 데이터 수집 시각: {collected_at}")
         lines.append("위 소스에 포함된 구체적 수치만 인용하세요. 학습 데이터의 과거 수치를 사용하면 심각한 오류가 됩니다.")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _format_market_snapshot(market: dict) -> str:
+        """yfinance 시장 스냅샷을 에이전트용 텍스트로 변환."""
+        lines = [
+            "",
+            "=" * 50,
+            "📊 [실시간 시장 데이터 — yfinance 직접 수집, 가장 정확한 수치]",
+            f"수집 시각: {market.get('collected_at', 'N/A')}",
+            "⚠️ 지수·환율·금리 인용 시 반드시 이 섹션의 수치를 사용하세요.",
+            "=" * 50,
+        ]
+
+        # 지수
+        indices = market.get("indices", {})
+        if indices:
+            lines.append("\n=== 주요 지수 ===")
+            for name, data in indices.items():
+                if isinstance(data, dict) and data.get("close"):
+                    lines.append(
+                        f"  {name:10s}: {data['close']:>12,.2f}  ({data.get('change_pct', 0):+.2f}%)"
+                    )
+
+        # 기술적 지표
+        tech = market.get("kospi_technical", {})
+        if tech:
+            lines.append("\n=== KOSPI 기술적 지표 ===")
+            lines.append(f"  RSI(14)     : {tech.get('rsi_14', 'N/A')}")
+            lines.append(
+                f"  MACD        : {tech.get('macd', 'N/A')}  "
+                f"Signal: {tech.get('signal', 'N/A')}  "
+                f"Hist: {tech.get('histogram', 'N/A')}"
+            )
+            lines.append(f"  볼린저밴드   : 밴드 내 위치 {tech.get('bb_position_pct', 'N/A')}%")
+            lines.append(
+                f"  이동평균     : MA5={tech.get('ma5', 'N/A')} "
+                f"MA20={tech.get('ma20', 'N/A')} "
+                f"MA60={tech.get('ma60', 'N/A')}"
+            )
+
+        # 거시
+        macro = market.get("macro", {})
+        if macro:
+            lines.append("\n=== 환율·금리 ===")
+            lines.append(f"  USD/KRW     : {macro.get('usd_krw', 'N/A')}")
+            lines.append(f"  미 10년물   : {macro.get('us_10y_yield', 'N/A')}%")
+
+        macro_ind = market.get("macro_indicators", {})
+        if macro_ind:
+            lines.append("\n=== 거시경제 지표 ===")
+            for name, data in macro_ind.items():
+                if isinstance(data, dict) and data.get("close"):
+                    lines.append(
+                        f"  {name:14s}: {data['close']:>12,.2f}  ({data.get('change_pct', 0):+.2f}%)"
+                    )
+
+        # 주요 종목
+        stocks = market.get("top_stocks", [])
+        if stocks:
+            lines.append("\n=== 주요 종목 ===")
+            for s in stocks:
+                lines.append(
+                    f"  {s.get('name', ''):10s}: {s.get('close', 0):>12,.2f}  "
+                    f"({s.get('change_pct', 0):+.2f}%)"
+                )
+
+        lines.append("=" * 50)
         return "\n".join(lines)
 
     # ── 서브클래스에서 구현 ──────────────────────────────────────────────────

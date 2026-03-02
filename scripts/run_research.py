@@ -189,6 +189,18 @@ def main():
     )
     logger.info(f"수집 완료: {research_data.get('total_sources', 0)}건 소스")
 
+    # 4-1) 도메인별 정량 시장 데이터 수집 (stock, economy)
+    try:
+        from orchestrator.market_data_collector import collect_market_snapshot
+        market_snapshot = collect_market_snapshot(domain)
+        if market_snapshot:
+            research_data["market_snapshot"] = market_snapshot
+            logger.info(f"시장 정량 데이터 수집 완료")
+    except ImportError:
+        logger.warning("market_data_collector 모듈 로드 실패 (yfinance 미설치?)")
+    except Exception as e:
+        logger.warning(f"시장 데이터 수집 실패 (계속 진행): {e}")
+
     # 5) Moderator (두 모드 공통)
     moderator = Moderator(
         client=client,
