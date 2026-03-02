@@ -239,15 +239,65 @@ class BaseAgent:
                         f"  {name:14s}: {data['close']:>12,.2f}  ({data.get('change_pct', 0):+.2f}%)"
                     )
 
-        # 주요 종목
+        # 시장 밸류에이션 요약
+        mkt_val = market.get("market_valuation", {})
+        if mkt_val:
+            lines.append("\n=== 시장 밸류에이션 요약 (주요 종목 기준) ===")
+            med_per = mkt_val.get("top_stocks_median_per")
+            med_pbr = mkt_val.get("top_stocks_median_pbr")
+            sp_per = mkt_val.get("sp500_per")
+            sp_pbr = mkt_val.get("sp500_pbr")
+            if med_per:
+                lines.append(f"  주요종목 중위 PER : {med_per}")
+            if med_pbr:
+                lines.append(f"  주요종목 중위 PBR : {med_pbr}")
+            if sp_per:
+                lines.append(f"  S&P500 PER       : {sp_per}")
+            if sp_pbr:
+                lines.append(f"  S&P500 PBR       : {sp_pbr}")
+
+        # 주요 종목 — 가격 + 밸류에이션
         stocks = market.get("top_stocks", [])
         if stocks:
-            lines.append("\n=== 주요 종목 ===")
+            lines.append("\n=== 주요 종목 (가격 + 밸류에이션) ===")
             for s in stocks:
-                lines.append(
+                price_line = (
                     f"  {s.get('name', ''):10s}: {s.get('close', 0):>12,.2f}  "
                     f"({s.get('change_pct', 0):+.2f}%)"
                 )
+                lines.append(price_line)
+
+                val = s.get("valuation", {})
+                if val:
+                    val_parts = []
+                    per_t = val.get("per_trailing", "N/A")
+                    per_f = val.get("per_forward", "N/A")
+                    if per_t != "N/A":
+                        val_parts.append(f"PER={per_t}")
+                    if per_f != "N/A":
+                        val_parts.append(f"Forward PER={per_f}")
+                    pbr = val.get("pbr", "N/A")
+                    if pbr != "N/A":
+                        val_parts.append(f"PBR={pbr}")
+                    div_y = val.get("dividend_yield", "N/A")
+                    if div_y != "N/A":
+                        val_parts.append(f"배당률={div_y}%")
+                    eps = val.get("eps", "N/A")
+                    if eps != "N/A":
+                        val_parts.append(f"EPS={eps}")
+                    roe = val.get("roe", "N/A")
+                    if roe != "N/A":
+                        val_parts.append(f"ROE={roe}%")
+                    mcap = val.get("market_cap", "N/A")
+                    if mcap != "N/A":
+                        val_parts.append(f"시총={mcap}")
+                    w52h = val.get("week52_high", "N/A")
+                    w52l = val.get("week52_low", "N/A")
+                    if w52h != "N/A" and w52l != "N/A":
+                        val_parts.append(f"52주={w52l}~{w52h}")
+
+                    if val_parts:
+                        lines.append(f"    → {' | '.join(val_parts)}")
 
         lines.append("=" * 50)
         return "\n".join(lines)
