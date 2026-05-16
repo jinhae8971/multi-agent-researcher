@@ -1,5 +1,16 @@
 [
   {
+    "id": "20260516_154246",
+    "topic": "Anthropic Usage Tracker 통합 검증",
+    "domain": "tech",
+    "domain_name": "IT/기술 분석",
+    "engine_mode": "mars",
+    "final_stance": "NEUTRAL",
+    "confidence_score": 58,
+    "summary": "Author의 분석은 데이터 정합성 측면에서 양호하나(Product Hunt 319명 팔로워, 2026년 4월 16일 Opus 4.7 출시 등 소스 기반 수치만 사용), '통합 검증'이라는 주제에 비해 실제 검증 결과가 부재합니다. 4명의 Reviewer 중 3명이 p",
+    "generated_at": "2026-05-16T15:45:27.336445"
+  },
+  {
     "id": "20260516_105128",
     "topic": "Anthropic Usage Tracker 통합 테스트",
     "domain": "tech",
