@@ -1,5 +1,16 @@
 [
   {
+    "id": "20260516_105128",
+    "topic": "Anthropic Usage Tracker 통합 테스트",
+    "domain": "tech",
+    "domain_name": "IT/기술 분석",
+    "engine_mode": "mars",
+    "final_stance": "NEUTRAL",
+    "confidence_score": 71,
+    "summary": "Author 분석은 데이터 정합성(소스 외 수치 미사용)과 팩트 추출 정확도에서 우수하나, 기술·시장·리스크 균형에서 편향 발견. 4명 리뷰어가 공통 인정한 강점: ①Grafana 공식 통합(소스1), ②npm 소스맵 유출로 4,600개 비공개 vs 279개 공개 파일",
+    "generated_at": "2026-05-16T10:54:28.140866"
+  },
+  {
     "id": "20260305_200212",
     "topic": "내일 코스피 대응",
     "domain": "general",
