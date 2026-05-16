@@ -4,6 +4,14 @@ debate_engine.py — Phase 1 (독립 분석) + Phase 2 (교차 반론) 실행
 Korean Stock Agent의 검증된 패턴을 기반으로,
 CRITIQUE_PAIRS를 도메인 프리셋에서 동적으로 받아 실행한다.
 """
+# === anthropic_usage_reporter (auto-injected) ===
+try:
+    from anthropic_usage_reporter import patch_anthropic_client
+    patch_anthropic_client(workflow="multi-agent-research")
+except Exception:
+    pass
+# === end auto-injection ===
+
 import logging
 from typing import List, Tuple
 
