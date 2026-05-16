@@ -13,6 +13,15 @@ ENGINE_MODE 환경변수로 엔진 선택:
   5. JSON 보고서 생성 + 히스토리 아카이브
   6. Telegram 알림 발송
 """
+
+# === anthropic_usage_reporter (auto-injected) ===
+try:
+    from anthropic_usage_reporter import patch_anthropic_client
+    patch_anthropic_client(workflow="multi-agent-research")
+except Exception:
+    pass
+# === end auto-injection ===
+
 import json
 import logging
 import os
