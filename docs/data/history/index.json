@@ -1,5 +1,16 @@
 [
   {
+    "id": "20260516_155625",
+    "topic": "patch 수정 후 검증 테스트",
+    "domain": "tech",
+    "domain_name": "IT/기술 분석",
+    "engine_mode": "mars",
+    "final_stance": "BEARISH",
+    "confidence_score": 78,
+    "summary": "본 리서치는 근본적인 주제-데이터 불일치 문제로 인해 분석 목적 달성에 실패했습니다. '패치 수정 후 검증 테스트'라는 주제에 대해 제공된 소스는 OllySite 플랫폼의 제품 소개 페이지, 무관한 GitHub 이슈(konlpy), 멀웨어 분석 보고서 등으로 구성되어 ",
+    "generated_at": "2026-05-16T15:59:09.241097"
+  },
+  {
     "id": "20260516_154246",
     "topic": "Anthropic Usage Tracker 통합 검증",
     "domain": "tech",
